@@ -37,13 +37,14 @@ class MyThreadPool {
         return ret;
       }
   private:
-    void do_work();
+    void do_work(); 
+    void add_worker();
   private:
     struct ThreadWrap {
        public:
          ThreadWrap() = default;
          ~ThreadWrap() = default;
-         ThreadWrap(std::unique_ptr<std::thread> tPtr,std::shared_ptr<std::atomic<bool>> s)
+         ThreadWrap(std::unique_ptr<std::thread> tPtr,std::shared_ptr<std::atomic<int>> s)
          {
            threadPtr = std::move(tPtr);
            status = s;
@@ -54,7 +55,8 @@ class MyThreadPool {
            status = other.status;
          }
          std::unique_ptr<std::thread> threadPtr;
-         std::shared_ptr<std::atomic<bool>> status;
+         //0:idle , 1:busy, 2: toRemove
+         std::shared_ptr<std::atomic<int>> status;
     };
     std::unordered_map<std::thread::id,ThreadWrap> d_threads;
     std::queue<std::function<void()>> d_tasks;
