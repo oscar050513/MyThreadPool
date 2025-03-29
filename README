@@ -1,0 +1,5 @@
+1. support thread pool resize;remove idle thread first if needed
+2. manage by cmake
+3. support lockfree task queue
+4. support all types of task function type , such as lambda , data structure with operator
+5. support STL 
