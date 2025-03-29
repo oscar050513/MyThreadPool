@@ -11,7 +11,6 @@ void test_task()
 int main()
 {
   MyThreadPool tp(5);
-  tp.init();
   for(int i=0;i<20;++i)
   {
    tp.submit_task(test_task);

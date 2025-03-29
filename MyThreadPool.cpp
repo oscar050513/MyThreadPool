@@ -1,25 +1,32 @@
 #include "MyThreadPool.h"
 
-MyThreadPool::~MyThreadPool()
+MyThreadPool::MyThreadPool(size_t n) noexcept : d_stop(false) {
+  for(size_t idx=0;idx<n;++idx)
+   {
+     std::unique_ptr<std::thread> threadPtr(new std::thread(&MyThreadPool::do_work,this));
+     auto tid = threadPtr->get_id();
+     d_threads.emplace(tid,ThreadWrap(std::move(threadPtr),std::make_shared<std::atomic<bool>>(false)));
+     //d_threads[tid] = {std::move(threadPtr),false};
+   }
+};
+
+MyThreadPool::~MyThreadPool() noexcept
 {
    d_stop.store(true);
    d_cv.notify_all();
-   for(auto& threadPtr : d_threads)
+   for(auto& [_,threadwrap] : d_threads)
   {
-     threadPtr->join();
+     threadwrap.threadPtr->join();
   }  
 }
 
-void MyThreadPool::init()
-{
-   for(size_t idx=0;idx<d_threadnum;++idx)
-   {
-     d_threads.emplace_back(std::make_unique<std::thread>(std::thread(&MyThreadPool::do_work,this)));
-   }
+bool resize(size_t targetCount) {
+  return true;
 }
 
 void MyThreadPool::do_work()
 {
+  auto tid = std::this_thread::get_id();
   while(true)
   {
     std::function<void()> task;
