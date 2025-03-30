@@ -10,13 +10,15 @@ void test_task()
 
 int main()
 {
-  MyThreadPool tp(4);
-  for(int i=0;i<30;++i)
+  MyThreadPool tp(8);
+  for(int i=0;i<80;++i)
   {
    tp.submit_task(test_task);
   }
-  //std::this_thread::sleep_for(std::chrono::seconds(6));
-  //tp.resize(2);
-  std::this_thread::sleep_for(std::chrono::seconds(60));
+  std::this_thread::sleep_for(std::chrono::seconds(4));
+  tp.resize(2);
+  std::this_thread::sleep_for(std::chrono::seconds(20));
+  tp.resize(4);
+  std::this_thread::sleep_for(std::chrono::seconds(20));
   return 0;
 }

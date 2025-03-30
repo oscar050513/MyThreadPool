@@ -37,7 +37,7 @@ class MyThreadPool {
         return ret;
       }
   private:
-    void do_work(); 
+    void do_work(std::size_t tid); 
     void add_worker();
   private:
     struct ThreadWrap {
@@ -58,11 +58,12 @@ class MyThreadPool {
          //0:idle , 1:busy, 2: toRemove
          std::shared_ptr<std::atomic<int>> status;
     };
-    std::unordered_map<std::thread::id,ThreadWrap> d_threads;
+    std::unordered_map<std::size_t,ThreadWrap> d_threads;
     std::queue<std::function<void()>> d_tasks;
     std::atomic<bool> d_stop;
     std::mutex d_mtx;
     std::condition_variable d_cv;
+    std::size_t d_tid_cur {0};
 };
 
 #endif

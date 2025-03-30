@@ -14,19 +14,14 @@ MyThreadPool::~MyThreadPool() noexcept
    d_cv.notify_all();
    for(auto& [tid,threadwrap] : d_threads)
   {
-     std::cout<<"thread "<<tid<<" joined upon threadpool dtor"<<std::endl;
      threadwrap.threadPtr->join();
   }  
 }
 
 void MyThreadPool::add_worker()
 {
-  std::unique_ptr<std::thread> threadPtr(new std::thread(&MyThreadPool::do_work,this));
-  auto tid = threadPtr->get_id();
-  //WARNING , cout output tid will cause crash
-  //std::cout<<"launched worker thread : "<<tid<<std::endl;
-  //std::this_thread::sleep_for(std::chrono::seconds(5));
-  d_threads.emplace(tid,ThreadWrap(std::move(threadPtr),std::shared_ptr<std::atomic<int>>(new std::atomic<int>(0))));
+  auto tid = d_tid_cur;
+  d_threads.emplace(d_tid_cur++,ThreadWrap(std::unique_ptr<std::thread>(new std::thread(&MyThreadPool::do_work,this,tid)),std::shared_ptr<std::atomic<int>>(new std::atomic<int>(0))));
 }
 
 bool MyThreadPool::resize(size_t targetCount) {
@@ -44,24 +39,21 @@ bool MyThreadPool::resize(size_t targetCount) {
   {
     size_t toRemoveCount = n - targetCount;
     auto removeThread = [&toRemoveCount,this](int targetStatus) {
-    std::cout<<"remove threads in status : "<<targetStatus<<std::endl;
-    for(auto& [tid,threadWrap] : this->d_threads)
+    for(auto iter=this->d_threads.begin();iter!=this->d_threads.end();)
     {
         if(toRemoveCount<=0)
         {
           break;
         }
-        std::cout<<"check status of worker thread: "<<tid<<std::endl;
-        std::cout<<threadWrap.status->load()<<std::endl;
-        std::cout<<"done check status of worker thread: "<<tid<<std::endl;
-        if(threadWrap.status->load()== targetStatus)
+        auto tid = iter->first;
+        if(iter->second.status->load()== targetStatus)
         {
           std::cout<<"remove thread "<<tid<<" triggered by threadpool resize"<<std::endl;
           --toRemoveCount;
-          threadWrap.status->store(2);
-          threadWrap.threadPtr->detach();
+          iter->second.status->store(2);
+          iter->second.threadPtr->detach();
           std::cout<<"remove thread from data structure"<<std::endl;
-          this->d_threads.erase(tid);
+          iter = this->d_threads.erase(iter);
           std::cout<<"done removed thread from data structure: "<<toRemoveCount<<std::endl;
         }
      }
@@ -81,9 +73,8 @@ bool MyThreadPool::resize(size_t targetCount) {
   return ret;
 }
 
-void MyThreadPool::do_work()
+void MyThreadPool::do_work(std::size_t tid)
 {
-  auto tid = std::this_thread::get_id();
   std::cout<<"worker thread "<<tid<<" launched to process patch"<<std::endl;
   auto statusPtr = d_threads[tid].status;
   while(true)
@@ -92,7 +83,6 @@ void MyThreadPool::do_work()
     {
       std::unique_lock<std::mutex> lck(d_mtx);
       d_cv.wait(lck,[this,statusPtr](){return statusPtr->load()==2||this->d_stop.load() || !this->d_tasks.empty();});
-      //d_cv.wait(lck,[this,statusPtr](){return this->d_stop.load() || !this->d_tasks.empty();});
       if(d_stop.load()&&d_tasks.empty() || statusPtr->load()==2)
       {
         std::cout<<"thread "<<tid<<" return and lifecycle end"<<std::endl;
@@ -102,9 +92,15 @@ void MyThreadPool::do_work()
      d_tasks.pop();
     }
     std::cout<<"thread "<<tid<<" start to process a task"<<std::endl;
+    if(statusPtr->load()!=2)
+   {
     statusPtr->store(1);
+   }
     task();
+   if(statusPtr->load()!=2)
+   {
     statusPtr->store(0);
+   }
     std::cout<<"thread "<<tid<<" complete processing a task"<<std::endl;
   }
 }
